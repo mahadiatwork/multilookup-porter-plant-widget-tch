@@ -2,13 +2,10 @@ import * as React from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import TextField from "@mui/material/TextField";
-import Autocomplete from "@mui/material/Autocomplete";
-
-import { useZohoInit } from "./hook/useZohoInit";
-import { zohoApi } from "./zohoApi";
+import MultiSelectField from "./atoms/MultiSelectField";
 
 const ZOHO = window.ZOHO;
+
 const parentContainerStyle = {
   borderTop: "1px solid #BABABA",
   minHeight: "calc(100vh - 1px)",
@@ -18,156 +15,87 @@ const parentContainerStyle = {
 };
 
 function App() {
-  const { module, recordId } = useZohoInit({ height: "50%", width: "50%" });
-  const [initPageContent, setInitPageContent] = React.useState(
-    <CircularProgress />
-  );
-  const [accountTypes, setAccountTypes] = React.useState();
-  console.log({ accountTypes });
-  const [contacts, setContacts] = React.useState();
-  // let selectedData = {};
-  let selectedData = React.useRef({});
-  // let selectedData = React.useRef({ contacts: null, accounts: null });
+  const [selectedData, setSelectedData] = React.useState({
+    contacts: [],
+    companies: [],
+    contractors: [],
+    subContractors: [],
+  });
 
   React.useEffect(() => {
-    const fetchRecords = async () => {
-      const { data: contactRecords } =
-        await zohoApi.record.getBulkRecordDetailsRestAPI({
-          module: "Contacts",
-        });
-      setContacts(contactRecords);
-      const { data: accountRecords } =
-        await zohoApi.record.getBulkRecordDetailsRestAPI({
-          module: "Accounts",
-        });
-      const temp = {};
-      accountRecords?.forEach((el) => {
-        if (el?.Account_Type) {
-          temp[el.Account_Type] = temp[el?.Account_Type]
-            ? [...temp[el?.Account_Type], el]
-            : [el];
-        } else {
-          temp.null = temp.null ? [...temp.null, el] : [el];
-        }
-      });
-      setAccountTypes(temp);
-      setInitPageContent(null);
-    };
-    if (module) {
-      fetchRecords();
-    }
-  }, [module]);
+    ZOHO.embeddedApp.on("PageLoad", () => {
+      console.log("Zoho Embedded App Initialized");
+    });
+
+    ZOHO.embeddedApp.init();
+  }, []);
+
+  const handleSubmit = () => {
+    console.log("Selected Data for Submit:", selectedData);
+
+    // Perform further actions with `selectedData`
+  };
 
   return (
     <Box sx={parentContainerStyle}>
-      {initPageContent ? (
-        <span
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
+      <Box
+        sx={{
+          flexGrow: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: "1em",
+        }}
+      >
+        <MultiSelectField
+          ZOHO={ZOHO}
+          entity="Contacts"
+          label="Contacts"
+          query="(Full_Name:contains:QUERY_VALUE)"
+          onSelectionChange={(newValue) =>
+            setSelectedData((prev) => ({ ...prev, contacts: newValue }))
+          }
+        />
+        <MultiSelectField
+          ZOHO={ZOHO}
+          entity="Accounts"
+          label="Companies"
+          query="(Account_Type:equals:Customer)"
+          onSelectionChange={(newValue) =>
+            setSelectedData((prev) => ({ ...prev, companies: newValue }))
+          }
+        />
+        <MultiSelectField
+          ZOHO={ZOHO}
+          entity="Accounts"
+          label="Contractors"
+          query="(Account_Type:equals:Distributor)"
+          onSelectionChange={(newValue) =>
+            setSelectedData((prev) => ({ ...prev, contractors: newValue }))
+          }
+        />
+        <MultiSelectField
+          ZOHO={ZOHO}
+          entity="Accounts"
+          label="Sub-Contractors"
+          query="(Account_Type:equals:Supplier)"
+          onSelectionChange={(newValue) =>
+            setSelectedData((prev) => ({ ...prev, subContractors: newValue }))
+          }
+        />
+      </Box>
+      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: "1em" }}>
+        <Button
+          variant="outlined"
+          onClick={() => {
+            ZOHO.CRM.UI.Popup.close();
           }}
         >
-          {initPageContent}
-        </span>
-      ) : null}
-      {initPageContent ? null : (
-        <Box
-          sx={{
-            flexGrow: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
-          }}
-        >
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "1em",
-            }}
-          >
-            <Autocomplete
-              multiple
-              disabled={!contacts}
-              options={contacts}
-              size="small"
-              onChange={(event, value) => {
-                selectedData.current.contacts = value;
-              }}
-              getOptionLabel={(option) => option?.Full_Name}
-              renderInput={(params) => (
-                <TextField {...params} label="Contacts" />
-              )}
-            />
-            <Autocomplete
-              multiple
-              disabled={!accountTypes?.Customer}
-              options={accountTypes?.Customer}
-              size="small"
-              onChange={(event, value) => {
-                selectedData.current.Customer = value;
-              }}
-              getOptionLabel={(option) => option?.Account_Name}
-              renderInput={(params) => (
-                <TextField {...params} label="Companies" />
-              )}
-            />
-            <Autocomplete
-              multiple
-              disabled={!accountTypes?.Distributor}
-              options={accountTypes?.Distributor}
-              size="small"
-              onChange={(event, value) => {
-                selectedData.current.Distributor = value;
-              }}
-              getOptionLabel={(option) => option?.Account_Name}
-              renderInput={(params) => (
-                <TextField {...params} label="Contractors" />
-              )}
-            />
-            <Autocomplete
-              multiple
-              disabled={!accountTypes?.Supplier}
-              options={accountTypes?.Supplier}
-              size="small"
-              onChange={(event, value) => {
-                selectedData.current.Supplier = value;
-              }}
-              getOptionLabel={(option) => option?.Account_Name}
-              renderInput={(params) => (
-                <TextField {...params} label="Sub-Contractors" />
-              )}
-            />
-          </Box>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: "1em" }}>
-            <Button
-              variant="outlined"
-              onClick={async (params) => {
-                ZOHO.CRM.UI.Popup.close();
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={async (params) => {
-                zohoApi.record.updateRecord({
-                  module,
-                  recordData: {
-                    id: recordId?.[0],
-                    associate_data: selectedData.current,
-                  },
-                });
-                ZOHO.CRM.UI.Popup.closeReload();
-              }}
-            >
-              Save
-            </Button>
-          </Box>
-        </Box>
-      )}
+          Cancel
+        </Button>
+        <Button variant="contained" onClick={handleSubmit}>
+          Submit
+        </Button>
+      </Box>
     </Box>
   );
 }
